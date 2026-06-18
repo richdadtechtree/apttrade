@@ -103,7 +103,7 @@ def _fetch_page(url: str, lawd_cd: str, deal_ymd: str, page_no: int) -> ET.Eleme
             root = ET.fromstring(resp.content)
             # 공공데이터 API 에러 코드 확인
             result_code = root.findtext(".//resultCode")
-            if result_code and result_code.strip() not in ("00", "0000"):
+            if result_code and result_code.strip() not in ("00", "000", "0000"):
                 result_msg = root.findtext(".//resultMsg") or ""
                 raise ValueError(f"API 오류 [{result_code}]: {result_msg}")
             return root
