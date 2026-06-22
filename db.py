@@ -117,6 +117,55 @@ CREATE TABLE IF NOT EXISTS collect_log (
 );
 """
 
+# 최고가 관리 테이블 (현재까지 최고가)
+DDL_APT_MAX_PRICE = """
+CREATE TABLE IF NOT EXISTS apt_max_price (
+    id               BIGSERIAL PRIMARY KEY,
+    monitored_id     BIGINT         UNIQUE,             -- JSON의 id
+    sido             TEXT,                              -- 시도
+    sigungu          TEXT,                              -- 시군구
+    dong             TEXT,                              -- 법정동
+    sigungu_code     CHAR(5)        NOT NULL,           -- 시군구코드
+    apt_name         TEXT           NOT NULL,           -- 아파트명
+    area             TEXT           NOT NULL,           -- 면적 (예: "59")
+    jibun_addr       TEXT,                              -- 지번주소
+    build_year       TEXT,                              -- 건축년도
+    prev_max_price   BIGINT,                            -- 이전 최고가
+    prev_max_date    VARCHAR(10),                       -- 이전 최고가 날짜 YYYY-MM-DD
+    prev_max_floor   VARCHAR(10),                       -- 이전 최고가 층
+    prev_max_dong    VARCHAR(50),                       -- 이전 최고가 동
+    last_max_price   BIGINT,                            -- 최종 최고가
+    max_price_date   VARCHAR(10),                       -- 최종 최고가 날짜 YYYY-MM-DD
+    max_price_floor  VARCHAR(10),                       -- 최종 최고가 층
+    max_price_dong   VARCHAR(50),                       -- 최종 최고가 동
+    last_update      TIMESTAMPTZ,                       -- 최종 업데이트 일시
+    created_at       TIMESTAMPTZ    DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_apt_max_price_key ON apt_max_price (sigungu_code, apt_name, area);
+"""
+
+# 오늘 신고가 관리 테이블 (오늘 신규 신고가 발생 내역)
+DDL_APT_TODAY_MAX_PRICE = """
+CREATE TABLE IF NOT EXISTS apt_today_max_price (
+    id               BIGSERIAL PRIMARY KEY,
+    monitored_id     BIGINT,                            -- JSON의 id
+    sido             TEXT,
+    sigungu          TEXT,
+    dong             TEXT,
+    sigungu_code     CHAR(5)        NOT NULL,
+    apt_name         TEXT           NOT NULL,
+    area             TEXT           NOT NULL,
+    jibun_addr       TEXT,
+    deal_amount      BIGINT         NOT NULL,           -- 거래금액
+    deal_date        VARCHAR(10)    NOT NULL,           -- 거래일 YYYY-MM-DD
+    floor            VARCHAR(10),                       -- 층
+    dong_nm          VARCHAR(50),                       -- 동
+    prev_max_price   BIGINT,                            -- 이전 최고가
+    created_at       TIMESTAMPTZ    DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_apt_today_max_price_date ON apt_today_max_price (deal_date);
+"""
+
 
 def init_db():
     """테이블이 없으면 생성"""
@@ -127,6 +176,8 @@ def init_db():
             cur.execute(DDL_SILV_TRADE)
             cur.execute(DDL_APT_RENT)
             cur.execute(DDL_COLLECT_LOG)
+            cur.execute(DDL_APT_MAX_PRICE)
+            cur.execute(DDL_APT_TODAY_MAX_PRICE)
         conn.commit()
         logger.info("DB 초기화 완료")
     finally:

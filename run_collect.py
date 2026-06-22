@@ -206,6 +206,21 @@ def main():
         f"소요: {elapsed/60:.1f}분"
     )
 
+    # 신규 신고가 분석 및 DB/JSON 동기화 작업 실행
+    logger.info("신규 신고가 분석 및 DB/JSON 동기화 작업 시작...")
+    from sync_max_price import check_and_update_max_prices, update_json_file
+    conn = get_conn()
+    try:
+        new_max_prices = check_and_update_max_prices(conn)
+        conn.commit()
+        if new_max_prices:
+            update_json_file("monitored_lists_backup.json", new_max_prices)
+    except Exception as e:
+        logger.error(f"신고가 동기화 중 오류 발생: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
+
 
 if __name__ == "__main__":
     main()

@@ -16,3 +16,6 @@ env/
 # IDE
 .vscode/
 .idea/
+
+# Data
+monitored_lists_backup.json

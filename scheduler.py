@@ -89,6 +89,22 @@ def daily_job():
 
     logger.info(f"일간 등록단지 업데이트 완료 — 저장/업데이트 행 {total_rows:,}, 오류 {errors}건")
 
+    # 신규 신고가 분석 및 DB/JSON 동기화 작업 실행
+    logger.info("신규 신고가 분석 및 DB/JSON 동기화 작업 시작...")
+    from sync_max_price import check_and_update_max_prices, update_json_file
+    from db import get_conn
+    conn = get_conn()
+    try:
+        new_max_prices = check_and_update_max_prices(conn)
+        conn.commit()
+        if new_max_prices:
+            update_json_file("monitored_lists_backup.json", new_max_prices)
+    except Exception as e:
+        logger.error(f"신고가 동기화 중 오류 발생: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
+
 
 def main():
     init_db()
