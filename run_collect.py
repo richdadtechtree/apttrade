@@ -67,15 +67,15 @@ def generate_months(start_ymd: str, end_ymd: str) -> list[str]:
 # ─────────────────────────────────────────────────
 # 단일 수집 작업
 # ─────────────────────────────────────────────────
-def collect_one(data_type: str, lawd_cd: str, deal_ymd: str) -> dict:
+def collect_one(data_type: str, lawd_cd: str, deal_ymd: str, force: bool = False) -> dict:
     """
     (data_type, lawd_cd, deal_ymd) 조합 1건 수집 → DB 저장.
     반환: {ok, rows_saved, skipped}
     """
     conn = get_conn()
     try:
-        # 이미 수집 완료된 경우 스킵
-        if already_collected(data_type, lawd_cd, deal_ymd, conn):
+        # 이미 수집 완료된 경우 스킵 (force=True인 경우 캐시 무시하고 강제 수집)
+        if not force and already_collected(data_type, lawd_cd, deal_ymd, conn):
             return {"ok": True, "rows_saved": 0, "skipped": True}
 
         rows, columns = fetch_all_pages(data_type, lawd_cd, deal_ymd)

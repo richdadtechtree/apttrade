@@ -135,13 +135,37 @@ def init_db():
 
 def upsert_rows(table: str, columns: list[str], rows: list[tuple], conn) -> int:
     """
-    ON CONFLICT DO NOTHING 방식으로 중복 없이 삽입.
-    반환값: 실제 삽입된 행 수
+    중복 등록 방지 및 기존 데이터 업데이트(예: 취소 거래 정보 반영).
+    반환값: 실제 삽입/업데이트된 행 수
     """
     if not rows:
         return 0
     col_str = ", ".join(columns)
-    sql = f"INSERT INTO {table} ({col_str}) VALUES %s ON CONFLICT DO NOTHING"
+    
+    # 테이블별 unique key 컬럼 목록 및 업데이트할 컬럼 정의
+    if table == "apt_trade":
+        conflict_cols = "lawd_cd, deal_ymd, deal_day, apt_nm, dong, jibun, exclu_use_ar, floor, deal_amount"
+        update_cols = ["cancel_deal_type", "cancel_deal_day", "deal_type", "req_gbn", "rdealer_lawdnm"]
+    elif table == "silv_trade":
+        conflict_cols = "lawd_cd, deal_ymd, deal_day, apt_nm, dong, jibun, exclu_use_ar, floor, deal_amount"
+        update_cols = ["cancel_deal_type", "cancel_deal_day", "deal_type"]
+    elif table == "apt_rent":
+        conflict_cols = "lawd_cd, deal_ymd, deal_day, apt_nm, dong, jibun, exclu_use_ar, floor, deposit, monthly_rent"
+        update_cols = ["contract_type", "contract_period", "use_reinstate_yn"]
+    else:
+        conflict_cols = None
+        update_cols = []
+
+    if conflict_cols and update_cols:
+        update_str = ", ".join([f"{col}=EXCLUDED.{col}" for col in update_cols])
+        sql = f"""
+            INSERT INTO {table} ({col_str}) VALUES %s
+            ON CONFLICT ({conflict_cols})
+            DO UPDATE SET {update_str}
+        """
+    else:
+        sql = f"INSERT INTO {table} ({col_str}) VALUES %s ON CONFLICT DO NOTHING"
+
     with conn.cursor() as cur:
         execute_values(cur, sql, rows, page_size=500)
         return cur.rowcount
@@ -173,3 +197,40 @@ def save_collect_log(table: str, lawd_cd: str, deal_ymd: str,
             """,
             (table, lawd_cd, deal_ymd, rows_saved, status, message),
         )
+
+
+def get_registered_lawd_codes() -> list[str]:
+    """
+    apt_complex 테이블에서 등록된 단지들의 고유 법정동 코드(시군구 5자리) 목록을 반환.
+    만약 테이블이 없거나 데이터가 없으면 빈 리스트 반환.
+    """
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            # apt_complex 테이블이 존재하는지 확인
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_name = 'apt_complex'
+                );
+            """)
+            exists = cur.fetchone()[0]
+            if not exists:
+                logger.warning("apt_complex 테이블이 데이터베이스에 존재하지 않습니다.")
+                return []
+                
+            # bjd_code의 앞 5자리가 lawd_cd 임
+            cur.execute("""
+                SELECT DISTINCT LEFT(bjd_code, 5) 
+                FROM apt_complex 
+                WHERE bjd_code IS NOT NULL AND length(bjd_code) >= 5
+                ORDER BY 1
+            """)
+            rows = cur.fetchall()
+            return [r[0] for r in rows if r[0]]
+    except Exception as e:
+        logger.error(f"등록단지 지역 코드 조회 실패: {e}")
+        return []
+    finally:
+        conn.close()

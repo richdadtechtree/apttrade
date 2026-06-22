@@ -56,14 +56,50 @@ def monthly_job():
     logger.info(f"월간 수집 완료: {prev_month} — 저장 행 {total_rows:,}, 오류 {errors}건")
 
 
+def daily_job():
+    """등록단지 대상 최근 4개월 실거래가 강제 업데이트"""
+    recent_months = []
+    today = date.today()
+    for i in range(4):
+        d = today - relativedelta(months=i)
+        recent_months.append(d.strftime("%Y%m"))
+        
+    logger.info(f"일간 등록단지 업데이트 시작. 대상 월: {recent_months}")
+    
+    from db import get_registered_lawd_codes
+    lawd_codes = get_registered_lawd_codes()
+    
+    if not lawd_codes:
+        logger.warning("업데이트할 등록단지 지역 코드가 없습니다. 작업을 건너뜁니다.")
+        return
+
+    logger.info(f"대상 지역 코드 수: {len(lawd_codes)}개")
+    
+    total_rows = 0
+    errors = 0
+    for data_type in DATA_TYPES:
+        for lawd_cd in lawd_codes:
+            for ym in recent_months:
+                # force=True로 설정하여 기수집 여부와 무관하게 데이터 강제 동기화 (취소 거래 반영 등)
+                result = collect_one(data_type, lawd_cd, ym, force=True)
+                if result["ok"]:
+                    total_rows += result["rows_saved"]
+                else:
+                    errors += 1
+
+    logger.info(f"일간 등록단지 업데이트 완료 — 저장/업데이트 행 {total_rows:,}, 오류 {errors}건")
+
+
 def main():
     init_db()
 
     scheduler = BlockingScheduler(timezone="Asia/Seoul")
-    # 매월 5일 02:00 KST
+    # 매월 5일 02:00 KST (전국 전월 데이터 수집)
     scheduler.add_job(monthly_job, "cron", day=5, hour=2, minute=0)
+    # 매일 03:00 KST (등록단지 최근 4개월 데이터 업데이트)
+    scheduler.add_job(daily_job, "cron", hour=3, minute=0)
 
-    logger.info("스케줄러 시작 — 매월 5일 02:00 KST에 전월 데이터 수집")
+    logger.info("스케줄러 시작 — 매월 5일 02:00 KST에 전월 데이터 수집 / 매일 03:00 KST에 등록단지 최근 4개월 데이터 업데이트")
     logger.info("Ctrl+C로 종료")
     try:
         scheduler.start()
