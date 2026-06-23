@@ -217,6 +217,22 @@ def upsert_rows(table: str, columns: list[str], rows: list[tuple], conn) -> int:
     else:
         sql = f"INSERT INTO {table} ({col_str}) VALUES %s ON CONFLICT DO NOTHING"
 
+    # 파이썬 레벨에서 동일 트랜잭션 내 중복 삽입 방지 (ON CONFLICT DO UPDATE 에러 방지)
+    if conflict_cols:
+        conflict_list = [c.strip() for c in conflict_cols.split(",")]
+        try:
+            key_indices = [columns.index(col) for col in conflict_list]
+            seen = set()
+            deduped_rows = []
+            for r in rows:
+                key = tuple(r[idx] for idx in key_indices)
+                if key not in seen:
+                    seen.add(key)
+                    deduped_rows.append(r)
+            rows = deduped_rows
+        except (ValueError, IndexError) as e:
+            logger.warning(f"중복 제거 중 오류 발생 (컬럼 불일치 가능성): {e}")
+
     with conn.cursor() as cur:
         execute_values(cur, sql, rows, page_size=500)
         return cur.rowcount
