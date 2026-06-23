@@ -112,10 +112,10 @@ def main():
     scheduler = BlockingScheduler(timezone="Asia/Seoul")
     # 매월 5일 02:00 KST (전국 전월 데이터 수집)
     scheduler.add_job(monthly_job, "cron", day=5, hour=2, minute=0)
-    # 매일 03:00 KST (등록단지 최근 4개월 데이터 업데이트)
-    scheduler.add_job(daily_job, "cron", hour=3, minute=0)
+    # 매일 05:00 KST (등록단지 최근 4개월 데이터 업데이트)
+    scheduler.add_job(daily_job, "cron", hour=5, minute=0)
 
-    logger.info("스케줄러 시작 — 매월 5일 02:00 KST에 전월 데이터 수집 / 매일 03:00 KST에 등록단지 최근 4개월 데이터 업데이트")
+    logger.info("스케줄러 시작 — 매월 5일 02:00 KST에 전월 데이터 수집 / 매일 05:00 KST에 등록단지 최근 4개월 데이터 업데이트")
     logger.info("Ctrl+C로 종료")
     try:
         scheduler.start()
