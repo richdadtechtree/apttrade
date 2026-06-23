@@ -210,6 +210,9 @@ def check_and_update_max_prices(conn) -> list:
     """
     
     with conn.cursor() as cur:
+        # 매일 새로운 신고가 단지 데이터만 남기기 위해 기존 오늘 신고가 데이터를 비웁니다.
+        cur.execute("TRUNCATE TABLE apt_today_max_price;")
+        
         cur.execute(sql)
         new_max_list = cur.fetchall()
         
