@@ -29,10 +29,10 @@ def run(detail: bool):
     cur = conn.cursor()
 
     separator("📊 테이블별 전체 행 수")
-    for tbl in ["apt_trade", "silv_trade", "apt_rent"]:
+    for tbl in ["apt_trade", "silv_trade", "apt_rent", "apt_max_price", "apt_today_max_price"]:
         cur.execute(f"SELECT COUNT(*) FROM {tbl}")
         cnt = cur.fetchone()[0]
-        print(f"  {tbl:<15} : {cnt:>12,} 행")
+        print(f"  {tbl:<20} : {cnt:>12,} 행")
 
     separator()
 
